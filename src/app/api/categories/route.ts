@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { successResponse, ApiError } from '@/lib/api-response';
 
 export async function GET() {
   // 从 prompts 表获取所有唯一分类
@@ -8,7 +8,7 @@ export async function GET() {
     .select('category');
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return ApiError.SERVER_ERROR(error.message);
   }
 
   // 提取唯一分类
@@ -16,7 +16,5 @@ export async function GET() {
   data?.forEach((item) => categoriesSet.add(item.category));
   const categories = Array.from(categoriesSet);
 
-  return NextResponse.json({
-    data: categories,
-  });
+  return successResponse({ data: categories });
 }

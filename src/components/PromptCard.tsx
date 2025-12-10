@@ -31,12 +31,9 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
 
     // 如果图片已经加载完成（缓存命中）
     if (img.complete && img.naturalHeight > 0) {
-      console.log('✅ 缓存命中:', prompt.title);
       setImageLoaded(true);
-    } else {
-      console.log('⏳ 等待加载:', prompt.title, img.src);
     }
-  }, [prompt.title]);
+  }, []);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,12 +74,8 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
                      transition-all duration-300 ease-out
                      group-hover:scale-105
                      ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-          onLoad={() => {
-            console.log('🖼️ onLoad 触发:', prompt.title);
-            setImageLoaded(true);
-          }}
-          onError={(e) => {
-            console.log('❌ onError 触发:', prompt.title, (e.target as HTMLImageElement).src);
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
             setImageError(true);
             setImageLoaded(true);
           }}

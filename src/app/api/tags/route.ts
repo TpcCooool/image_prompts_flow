@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { successResponse, ApiError } from '@/lib/api-response';
 
 export async function GET() {
   const { data, error } = await supabase
@@ -8,10 +8,8 @@ export async function GET() {
     .order('count', { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return ApiError.SERVER_ERROR(error.message);
   }
 
-  return NextResponse.json({
-    data: data || [],
-  });
+  return successResponse({ data: data || [] });
 }
