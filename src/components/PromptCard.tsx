@@ -53,37 +53,42 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
                  shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)]
                  hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] 
                  dark:shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)]
-                 transition-all duration-500 ease-out
+                 transition-shadow duration-300 ease-out
                  border border-gray-200/50 dark:border-gray-700/50
-                 hover:scale-[1.02] hover:-translate-y-1
-                 break-inside-avoid mb-5 cursor-pointer"
+                 break-inside-avoid mb-5 cursor-pointer
+                 will-change-[opacity,transform]"
       onClick={onClick}
     >
-      {/* Preview Image - 自然高度 */}
-      <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800 min-h-[120px]">
-        {/* 图片 - 始终渲染以触发 onLoad */}
-        <img
-          ref={imgRef}
-          src={
-            imageError
-              ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
-              : getImageUrl(prompt.preview)
-          }
-          alt={prompt.title}
-          className={`w-full h-auto object-cover 
-                     transition-all duration-300 ease-out
-                     group-hover:scale-105
-                     ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageError(true);
-            setImageLoaded(true);
-          }}
+      {/* Preview Image - 使用固定 aspect-ratio 减少布局抖动 */}
+      <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800">
+        {/* 图片容器 - 使用最小高度和自适应 */}
+        <div className="min-h-[160px]">
+          <img
+            ref={imgRef}
+            src={
+              imageError
+                ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
+                : getImageUrl(prompt.preview)
+            }
+            alt={prompt.title}
+            className={`w-full h-auto object-cover 
+                       transition-opacity duration-200 ease-out
+                       ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(true);
+            }}
+          />
+        </div>
+        {/* 骨架屏 - 绝对定位覆盖，添加淡出动画 */}
+        <div 
+          className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800
+                     transition-opacity duration-200 ease-out
+                     ${imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
         />
-        {/* 骨架屏 - 绝对定位覆盖 */}
-        {!imageLoaded && (
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800" />
-        )}
         {/* Category Badge - Apple 风格毛玻璃 */}
         <div className="absolute top-3 right-3">
           <span

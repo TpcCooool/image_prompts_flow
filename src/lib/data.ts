@@ -8,6 +8,7 @@ export interface FetchPromptsParams {
   tag?: string;
   page?: number;
   limit?: number;
+  excludeNsfw?: boolean;
 }
 
 export interface PromptsResult {
@@ -43,6 +44,11 @@ export async function fetchPrompts(params: FetchPromptsParams = {}): Promise<Pro
   }
   if (tag) {
     query = query.contains('tags', [tag]);
+  }
+
+  // 默认过滤 NSFW 内容
+  if (params.excludeNsfw !== false) {
+    query = query.neq('category', 'NSFW');
   }
 
   query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);

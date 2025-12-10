@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import TagFilter from "@/components/TagFilter";
 import CategoryFilter from "@/components/CategoryFilter";
 import PromptCard from "@/components/PromptCard";
 import PromptModal from "@/components/PromptModal";
+import { PromptCardSkeletonList } from "@/components/PromptCardSkeleton";
 import { Prompt, Tag, Language } from "@/types";
 import { translations } from "@/lib/i18n";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -29,20 +30,32 @@ export default function PromptsContainer({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
 
-  // 使用服务端初始数据
-  const [prompts, setPrompts] = useState<Prompt[]>(initialPrompts.data);
+  // 使用服务端初始数据（过滤 NSFW）
+  const filteredInitialPrompts = useMemo(
+    () => initialPrompts.data.filter((p) => p.category !== "NSFW"),
+    [initialPrompts.data]
+  );
+  const [prompts, setPrompts] = useState<Prompt[]>(filteredInitialPrompts);
   const [tags] = useState<Tag[]>(initialTags);
   const [categories] = useState<string[]>(initialCategories);
   const [totalCount, setTotalCount] = useState(initialPrompts.pagination.total);
   const [page, setPage] = useState(initialPrompts.pagination.page);
   const [hasMore, setHasMore] = useState(initialPrompts.pagination.hasMore);
   const [loading, setLoading] = useState(false);
+  
+  // 用于强制重渲染列表，避免切换筛选时旧图残留
+  const [filterKey, setFilterKey] = useState(0);
 
   const t = translations[lang];
 
   // 获取 prompts（当筛选条件变化时重新获取）
   const fetchPrompts = useCallback(
     async (pageNum: number, append = false) => {
+      // 非追加模式时，立即清空数据显示骨架屏
+      if (!append) {
+        setPrompts([]);
+        setFilterKey((k) => k + 1);
+      }
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -51,6 +64,10 @@ export default function PromptsContainer({
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (selectedCategory) params.set("category", selectedCategory);
         if (selectedTag) params.set("tag", selectedTag);
+        // 默认过滤 NSFW，除非明确选择了 NSFW 分类
+        if (selectedCategory !== "NSFW") {
+          params.set("excludeNsfw", "true");
+        }
 
         const res = await fetch(`/api/prompts?${params.toString()}`);
         const data = await res.json();
@@ -82,12 +99,13 @@ export default function PromptsContainer({
       setHasFiltered(true);
       fetchPrompts(1, false);
     } else if (hasFiltered) {
-      // 筛选条件全部清空时，恢复初始数据
-      setPrompts(initialPrompts.data);
+      // 筛选条件全部清空时，恢复初始数据（已过滤 NSFW）
+      setPrompts(filteredInitialPrompts);
       setTotalCount(initialPrompts.pagination.total);
       setHasMore(initialPrompts.pagination.hasMore);
       setPage(1);
       setHasFiltered(false);
+      setFilterKey((k) => k + 1);
     }
   }, [debouncedSearch, selectedCategory, selectedTag]);
 
@@ -130,13 +148,14 @@ export default function PromptsContainer({
 
         {/* Prompts Grid */}
         {loading && prompts.length === 0 ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
+          // 加载中显示骨架屏，体验更丝滑
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
+            <PromptCardSkeletonList count={12} />
           </div>
         ) : prompts.length > 0 ? (
           <>
-            {/* Masonry Layout */}
-            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
+            {/* Masonry Layout - 使用 key 强制重渲染避免旧图残留 */}
+            <div key={filterKey} className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
               {prompts.map((prompt, index) => (
                 <PromptCard
                   key={`${prompt.id || index}`}

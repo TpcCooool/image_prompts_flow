@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const tag = searchParams.get("tag") || "";
+  const excludeNsfw = searchParams.get("excludeNsfw") === "true";
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "24", 10);
   const offset = (page - 1) * limit;
@@ -32,6 +33,11 @@ export async function GET(request: NextRequest) {
   // 标签过滤
   if (tag) {
     query = query.contains("tags", [tag]);
+  }
+
+  // NSFW 过滤（默认排除，除非明确选择 NSFW 分类）
+  if (excludeNsfw) {
+    query = query.neq("category", "NSFW");
   }
 
   // 分页
