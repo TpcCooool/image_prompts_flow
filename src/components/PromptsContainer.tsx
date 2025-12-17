@@ -7,7 +7,7 @@ import CategoryFilter from "@/components/CategoryFilter";
 import PromptCard from "@/components/PromptCard";
 import PromptModal from "@/components/PromptModal";
 import { PromptCardSkeletonList } from "@/components/PromptCardSkeleton";
-import { Prompt, Tag, Language } from "@/types";
+import { Prompt, Tag, Language, PromptType } from "@/types";
 import { translations } from "@/lib/i18n";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PromptsResult } from "@/lib/data";
@@ -24,6 +24,7 @@ export default function PromptsContainer({
   initialCategories,
 }: PromptsContainerProps) {
   const [lang, setLang] = useState<Language>("zh");
+  const [promptType, setPromptType] = useState<PromptType>("image");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -36,8 +37,8 @@ export default function PromptsContainer({
     [initialPrompts.data]
   );
   const [prompts, setPrompts] = useState<Prompt[]>(filteredInitialPrompts);
-  const [tags] = useState<Tag[]>(initialTags);
-  const [categories] = useState<string[]>(initialCategories);
+  const [tags, setTags] = useState<Tag[]>(initialTags);
+  const [categories, setCategories] = useState<string[]>(initialCategories);
   const [totalCount, setTotalCount] = useState(initialPrompts.pagination.total);
   const [page, setPage] = useState(initialPrompts.pagination.page);
   const [hasMore, setHasMore] = useState(initialPrompts.pagination.hasMore);
@@ -61,6 +62,7 @@ export default function PromptsContainer({
         const params = new URLSearchParams();
         params.set("page", pageNum.toString());
         params.set("limit", "24");
+        params.set("prompt_type", promptType);
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (selectedCategory) params.set("category", selectedCategory);
         if (selectedTag) params.set("tag", selectedTag);
@@ -86,14 +88,50 @@ export default function PromptsContainer({
         setLoading(false);
       }
     },
-    [debouncedSearch, selectedCategory, selectedTag]
+    [debouncedSearch, selectedCategory, selectedTag, promptType]
   );
 
   // 标记是否有过筛选操作
   const [hasFiltered, setHasFiltered] = useState(false);
 
+  // 获取 tags 和 categories（根据 promptType）
+  const fetchFilters = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set("prompt_type", promptType);
+
+      const [tagsRes, categoriesRes] = await Promise.all([
+        fetch(`/api/tags?${params.toString()}`),
+        fetch(`/api/categories?${params.toString()}`),
+      ]);
+
+      const tagsData = await tagsRes.json();
+      const categoriesData = await categoriesRes.json();
+
+      setTags(tagsData.data || []);
+      setCategories(categoriesData.data || []);
+    } catch (error) {
+      console.error("Failed to fetch filters:", error);
+    }
+  }, [promptType]);
+
+  // promptType 变化时重新获取 tags 和 categories
+  useEffect(() => {
+    // 切换类型时清空已选的分类和标签
+    setSelectedCategory(null);
+    setSelectedTag(null);
+    fetchFilters();
+  }, [promptType, fetchFilters]);
+
   // 当筛选条件变化时重新获取数据
   useEffect(() => {
+    // promptType 变化时总是请求 API
+    if (promptType !== "image") {
+      setHasFiltered(true);
+      fetchPrompts(1, false);
+      return;
+    }
+    
     // 有筛选条件时请求 API
     if (debouncedSearch || selectedCategory || selectedTag) {
       setHasFiltered(true);
@@ -107,7 +145,7 @@ export default function PromptsContainer({
       setHasFiltered(false);
       setFilterKey((k) => k + 1);
     }
-  }, [debouncedSearch, selectedCategory, selectedTag]);
+  }, [debouncedSearch, selectedCategory, selectedTag, promptType]);
 
   const handleLoadMore = () => {
     fetchPrompts(page + 1, true);
@@ -120,6 +158,8 @@ export default function PromptsContainer({
         onLangChange={setLang}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        promptType={promptType}
+        onPromptTypeChange={setPromptType}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

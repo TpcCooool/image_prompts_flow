@@ -19,6 +19,8 @@ export const translations = {
     openInGemini: '在 Gemini 中使用',
     share: '分享',
     shareToX: '分享到 X',
+    imagePrompt: '图片 Prompt',
+    functionalPrompt: '功能性 Prompt',
   },
   en: {
     siteName: 'AI Image Prompts',
@@ -40,6 +42,8 @@ export const translations = {
     openInGemini: 'Use in Gemini',
     share: 'Share',
     shareToX: 'Share to X',
+    imagePrompt: 'Image Prompt',
+    functionalPrompt: 'Functional Prompt',
   },
 };
 

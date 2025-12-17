@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, ExternalLink, FileText } from "lucide-react";
 import { Prompt, Language } from "@/types";
 import { translations } from "@/lib/i18n";
 import { getImageUrl } from "@/lib/config";
@@ -63,32 +63,41 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
       <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800">
         {/* 图片容器 - 使用最小高度和自适应 */}
         <div className="min-h-[160px]">
-          <img
-            ref={imgRef}
-            src={
-              imageError
-                ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
-                : getImageUrl(prompt.preview)
-            }
-            alt={prompt.title}
-            className={`w-full h-auto object-cover 
-                       transition-opacity duration-200 ease-out
-                       ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              setImageError(true);
-              setImageLoaded(true);
-            }}
-          />
+          {prompt.preview ? (
+            <img
+              ref={imgRef}
+              src={
+                imageError
+                  ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
+                  : getImageUrl(prompt.preview)
+              }
+              alt={prompt.title}
+              className={`w-full h-auto object-cover 
+                         transition-opacity duration-200 ease-out
+                         ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setImageLoaded(true)}
+              onError={() => {
+                setImageError(true);
+                setImageLoaded(true);
+              }}
+            />
+          ) : (
+            <div className="h-40 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 
+                           flex items-center justify-center">
+              <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+            </div>
+          )}
         </div>
-        {/* 骨架屏 - 绝对定位覆盖，添加淡出动画 */}
-        <div 
-          className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800
-                     transition-opacity duration-200 ease-out
-                     ${imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
-        />
+        {/* 骨架屏 - 绝对定位覆盖，添加淡出动画（仅有图片时显示） */}
+        {prompt.preview && (
+          <div 
+            className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800
+                       transition-opacity duration-200 ease-out
+                       ${imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
+          />
+        )}
         {/* Category Badge - Apple 风格毛玻璃 */}
         <div className="absolute top-3 right-3">
           <span

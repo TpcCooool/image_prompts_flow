@@ -1,10 +1,14 @@
+export type PromptType = 'image' | 'functional';
+
 export interface Prompt {
   id?: number;
   title: string;
   title_en?: string;
-  preview: string;
+  preview?: string;
   prompt: string;
   prompt_en?: string;
+  description?: string;
+  description_en?: string;
   author: string;
   link?: string;
   mode: 'generate' | 'edit';
@@ -12,6 +16,8 @@ export interface Prompt {
   sub_category?: string;
   created?: string;
   tags?: string[];
+  prompt_type?: PromptType;
+  use_cases?: string[];
 }
 
 export interface Tag {

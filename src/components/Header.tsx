@@ -1,7 +1,7 @@
 'use client';
 
 import { Search, Globe, Sparkles } from 'lucide-react';
-import { Language } from '@/types';
+import { Language, PromptType } from '@/types';
 import { translations } from '@/lib/i18n';
 
 interface HeaderProps {
@@ -9,6 +9,8 @@ interface HeaderProps {
   onLangChange: (lang: Language) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  promptType: PromptType;
+  onPromptTypeChange: (type: PromptType) => void;
 }
 
 export default function Header({
@@ -16,6 +18,8 @@ export default function Header({
   onLangChange,
   searchQuery,
   onSearchChange,
+  promptType,
+  onPromptTypeChange,
 }: HeaderProps) {
   const t = translations[lang];
 
@@ -31,9 +35,36 @@ export default function Header({
                            shadow-[0_2px_8px_rgba(0,122,255,0.3)]">
               <Sparkles className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
-            <span className="font-semibold text-[17px] text-gray-900 dark:text-white tracking-tight">
+            <span className="font-semibold text-[17px] text-gray-900 dark:text-white tracking-tight hidden sm:inline">
               {t.siteName}
             </span>
+          </div>
+
+          {/* Prompt Type Tab - 液态玻璃风格 */}
+          <div className="flex items-center gap-1 p-1 rounded-xl 
+                         bg-white/60 dark:bg-white/10 backdrop-blur-xl 
+                         border border-white/50 dark:border-white/20
+                         shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+            <button
+              onClick={() => onPromptTypeChange('image')}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-200
+                         ${promptType === 'image'
+                           ? 'bg-[#007AFF] text-white shadow-md'
+                           : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/10'
+                         }`}
+            >
+              {t.imagePrompt}
+            </button>
+            <button
+              onClick={() => onPromptTypeChange('functional')}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-200
+                         ${promptType === 'functional'
+                           ? 'bg-[#007AFF] text-white shadow-md'
+                           : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/10'
+                         }`}
+            >
+              {t.functionalPrompt}
+            </button>
           </div>
 
           {/* Search Bar - 液态玻璃风格 */}
