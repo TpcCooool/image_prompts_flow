@@ -1,0 +1,88 @@
+'use client';
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+export interface UseImageLoaderOptions {
+  /** Image source URL */
+  src: string | null | undefined;
+  /** Fallback image source when main image fails to load */
+  fallbackSrc?: string;
+}
+
+export interface UseImageLoaderReturn {
+  /** Current image source to display */
+  imageSrc: string;
+  /** Whether the image has loaded successfully */
+  isLoaded: boolean;
+  /** Whether the image failed to load */
+  isError: boolean;
+  /** Whether the image is currently loading */
+  isLoading: boolean;
+  /** Ref to attach to the img element */
+  imgRef: React.RefObject<HTMLImageElement>;
+  /** Handler for image load event */
+  onLoad: () => void;
+  /** Handler for image error event */
+  onError: () => void;
+}
+
+const DEFAULT_FALLBACK = '/placeholder.svg';
+
+/**
+ * Hook for managing image loading states
+ * Handles loading, loaded, and error states with fallback support
+ */
+export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderReturn {
+  const { src, fallbackSrc = DEFAULT_FALLBACK } = options;
+  
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Determine the current image source
+  const imageSrc = useFallback || !src ? fallbackSrc : src;
+  
+  // Check if image is already cached on mount
+  useEffect(() => {
+    if (!src) {
+      setUseFallback(true);
+      setIsLoaded(true);
+      return;
+    }
+
+    // Reset states when src changes
+    setIsLoaded(false);
+    setIsError(false);
+    setUseFallback(false);
+
+    // Check if image is already in browser cache
+    const img = new Image();
+    img.src = src;
+    
+    if (img.complete && img.naturalWidth > 0) {
+      setIsLoaded(true);
+    }
+  }, [src]);
+
+  const onLoad = useCallback(() => {
+    setIsLoaded(true);
+    setIsError(false);
+  }, []);
+
+  const onError = useCallback(() => {
+    setIsError(true);
+    setIsLoaded(false);
+    setUseFallback(true);
+  }, []);
+
+  return {
+    imageSrc,
+    isLoaded,
+    isError,
+    isLoading: !isLoaded && !isError,
+    imgRef,
+    onLoad,
+    onError,
+  };
+}

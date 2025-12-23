@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import Header from "@/components/Header";
 import TagFilter from "@/components/TagFilter";
 import CategoryFilter from "@/components/CategoryFilter";
@@ -9,14 +15,24 @@ import PromptModal from "@/components/PromptModal";
 import { PromptCardSkeletonList } from "@/components/PromptCardSkeleton";
 import { Prompt, Tag, Language, PromptType } from "@/types";
 import { translations } from "@/lib/i18n";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useDebounce, useScrollDirection } from "@/hooks";
 import { PromptsResult } from "@/lib/data";
+import { getApiClient } from "@/lib/api-client";
+import { useToast } from "@/contexts/ToastContext";
 
 interface PromptsContainerProps {
   initialPrompts: PromptsResult;
   initialTags: Tag[];
   initialCategories: string[];
 }
+
+// API response types - apiClient.get<T> 返回 ApiResponse<T>
+// response.data 就是 T，response.pagination 在顶层
+// 所以泛型直接用数组类型
+
+interface TagsApiResponse extends Array<Tag> {}
+
+interface CategoriesApiResponse extends Array<string> {}
 
 export default function PromptsContainer({
   initialPrompts,
@@ -31,6 +47,12 @@ export default function PromptsContainer({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
 
+  // Toast notifications
+  const { addToast } = useToast();
+
+  // API client instance
+  const apiClient = useMemo(() => getApiClient(), []);
+
   // 使用服务端初始数据（过滤 NSFW）
   const filteredInitialPrompts = useMemo(
     () => initialPrompts.data.filter((p) => p.category !== "NSFW"),
@@ -43,9 +65,14 @@ export default function PromptsContainer({
   const [page, setPage] = useState(initialPrompts.pagination.page);
   const [hasMore, setHasMore] = useState(initialPrompts.pagination.hasMore);
   const [loading, setLoading] = useState(false);
-  
+
   // 用于强制重渲染列表，避免切换筛选时旧图残留
   const [filterKey, setFilterKey] = useState(0);
+
+  // Scroll direction for header hide/show on mobile
+  const { scrollDirection, isAtTop } = useScrollDirection({ threshold: 10 });
+  // Hide header when scrolling down and not at top (mobile only behavior handled in CSS)
+  const isHeaderHidden = scrollDirection === "down" && !isAtTop;
 
   const t = translations[lang];
 
@@ -58,37 +85,80 @@ export default function PromptsContainer({
         setFilterKey((k) => k + 1);
       }
       setLoading(true);
+
       try {
-        const params = new URLSearchParams();
-        params.set("page", pageNum.toString());
-        params.set("limit", "24");
-        params.set("prompt_type", promptType);
-        if (debouncedSearch) params.set("search", debouncedSearch);
-        if (selectedCategory) params.set("category", selectedCategory);
-        if (selectedTag) params.set("tag", selectedTag);
+        const params: Record<string, string | number | boolean | undefined> = {
+          page: pageNum,
+          limit: 24,
+          prompt_type: promptType,
+        };
+
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedTag) params.tag = selectedTag;
         // 默认过滤 NSFW，除非明确选择了 NSFW 分类
         if (selectedCategory !== "NSFW") {
-          params.set("excludeNsfw", "true");
+          params.excludeNsfw = true;
         }
 
-        const res = await fetch(`/api/prompts?${params.toString()}`);
-        const data = await res.json();
+        // 泛型直接用 Prompt[]，response.data 就是数组，response.pagination 在顶层
+        const response = await apiClient.get<Prompt[]>(
+          "/api/prompts",
+          { params }
+        )
 
+        if (!response.success) {
+          addToast({
+            type: "error",
+            message: response.error || t.loadError || "加载失败，请重试",
+            action: {
+              label: t.retry || "重试",
+              onClick: () => fetchPrompts(pageNum, append),
+            },
+          });
+          return;
+        }
+        console.log(append, response);
+        // response 直接包含 data (Prompt[]) 和 pagination
+        const { data, pagination } = response;
         if (append) {
-          setPrompts((prev) => [...prev, ...(data.data || [])]);
+          // 追加时去重，避免 key 冲突
+          setPrompts((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newItems = (data || []).filter(
+              (p: Prompt) => !existingIds.has(p.id)
+            );
+            return [...prev, ...newItems];
+          });
         } else {
-          setPrompts(data.data || []);
+          setPrompts(data || []);
         }
-        setTotalCount(data.pagination?.total || 0);
-        setHasMore(data.pagination?.hasMore || false);
+        setTotalCount(pagination?.total || 0);
+        setHasMore(pagination?.hasMore || false);
         setPage(pageNum);
       } catch (error) {
         console.error("Failed to fetch prompts:", error);
+        addToast({
+          type: "error",
+          message: t.loadError || "加载失败，请重试",
+          action: {
+            label: t.retry || "重试",
+            onClick: () => fetchPrompts(pageNum, append),
+          },
+        });
       } finally {
         setLoading(false);
       }
     },
-    [debouncedSearch, selectedCategory, selectedTag, promptType]
+    [
+      debouncedSearch,
+      selectedCategory,
+      selectedTag,
+      promptType,
+      apiClient,
+      addToast,
+      t,
+    ]
   );
 
   // 标记是否有过筛选操作
@@ -97,41 +167,67 @@ export default function PromptsContainer({
   // 获取 tags 和 categories（根据 promptType）
   const fetchFilters = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      params.set("prompt_type", promptType);
+      const params = { prompt_type: promptType };
 
-      const [tagsRes, categoriesRes] = await Promise.all([
-        fetch(`/api/tags?${params.toString()}`),
-        fetch(`/api/categories?${params.toString()}`),
+      const [tagsResponse, categoriesResponse] = await Promise.all([
+        apiClient.get<TagsApiResponse>("/api/tags", { params }),
+        apiClient.get<CategoriesApiResponse>("/api/categories", { params }),
       ]);
 
-      const tagsData = await tagsRes.json();
-      const categoriesData = await categoriesRes.json();
+      if (tagsResponse.success && tagsResponse.data) {
+        setTags(tagsResponse.data || []);
+      } else if (tagsResponse.error) {
+        console.error("Failed to fetch tags:", tagsResponse.error);
+      }
 
-      setTags(tagsData.data || []);
-      setCategories(categoriesData.data || []);
+      if (categoriesResponse.success && categoriesResponse.data) {
+        setCategories(categoriesResponse.data || []);
+      } else if (categoriesResponse.error) {
+        console.error("Failed to fetch categories:", categoriesResponse.error);
+      }
     } catch (error) {
       console.error("Failed to fetch filters:", error);
+      addToast({
+        type: "error",
+        message: t.loadError || "加载筛选条件失败",
+      });
     }
-  }, [promptType]);
+  }, [promptType, apiClient, addToast, t]);
 
   // promptType 变化时重新获取 tags 和 categories
+  // 使用 ref 跟踪是否是首次渲染，避免覆盖初始数据
+  const isFirstRender = React.useRef(true);
+
   useEffect(() => {
+    if (isFirstRender.current) {
+      // 首次渲染时，使用服务端传入的初始数据，不需要重新请求
+      isFirstRender.current = false;
+      return;
+    }
+
     // 切换类型时清空已选的分类和标签
     setSelectedCategory(null);
     setSelectedTag(null);
     fetchFilters();
-  }, [promptType, fetchFilters]);
+  }, [promptType]); // 移除 fetchFilters 依赖，避免循环
 
   // 当筛选条件变化时重新获取数据
+  const isFirstFilterRender = useRef(true);
+
   useEffect(() => {
+    // 首次渲染跳过，使用初始数据
+    if (isFirstFilterRender.current) {
+      isFirstFilterRender.current = false;
+      return;
+    }
+
     // promptType 变化时总是请求 API
     if (promptType !== "image") {
       setHasFiltered(true);
       fetchPrompts(1, false);
       return;
     }
-    
+
     // 有筛选条件时请求 API
     if (debouncedSearch || selectedCategory || selectedTag) {
       setHasFiltered(true);
@@ -148,7 +244,9 @@ export default function PromptsContainer({
   }, [debouncedSearch, selectedCategory, selectedTag, promptType]);
 
   const handleLoadMore = () => {
-    fetchPrompts(page + 1, true);
+    if (!loading && hasMore) {
+      fetchPrompts(page + 1, true);
+    }
   };
 
   return (
@@ -160,6 +258,7 @@ export default function PromptsContainer({
         onSearchChange={setSearchQuery}
         promptType={promptType}
         onPromptTypeChange={setPromptType}
+        isHidden={isHeaderHidden}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -195,7 +294,10 @@ export default function PromptsContainer({
         ) : prompts.length > 0 ? (
           <>
             {/* Masonry Layout - 使用 key 强制重渲染避免旧图残留 */}
-            <div key={filterKey} className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
+            <div
+              key={filterKey}
+              className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5"
+            >
               {prompts.map((prompt, index) => (
                 <PromptCard
                   key={`${prompt.id || index}`}

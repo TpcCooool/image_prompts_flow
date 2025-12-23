@@ -181,3 +181,108 @@ body {
 .animate-in {
   animation: dropdown-in 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
+
+/* Toast 动画 */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Mobile Search Panel Animation */
+@keyframes mobile-search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mobile-search-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.animate-mobile-search-in {
+  animation: mobile-search-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-mobile-search-out {
+  animation: mobile-search-out 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Header hide/show animation for scroll */
+@keyframes header-hide {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes header-show {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.header-hidden {
+  animation: header-hide 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.header-visible {
+  animation: header-show 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Offline Banner Animation */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}

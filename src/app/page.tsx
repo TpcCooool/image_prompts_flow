@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import PromptsContainer from '@/components/PromptsContainer';
+import PromptsContainerWrapper from '@/components/PromptsContainerWrapper';
 import { fetchPrompts, fetchTags, fetchCategories } from '@/lib/data';
 
 // 页面级缓存配置
@@ -9,11 +9,14 @@ export const revalidate = 60;
 // 主页 - Server Component
 // SSR 优势: SEO、更快的首屏渲染、减少客户端 JS
 export default async function Home() {
-  // 服务端并行获取初始数据
+  // 默认 prompt_type 为 'image'
+  const defaultPromptType = 'image';
+  
+  // 服务端并行获取初始数据，传入 prompt_type 确保数据一致
   const [promptsResult, tags, categories] = await Promise.all([
-    fetchPrompts({ page: 1, limit: 24 }),
-    fetchTags(),
-    fetchCategories(),
+    fetchPrompts({ page: 1, limit: 24, prompt_type: defaultPromptType }),
+    fetchTags(defaultPromptType),
+    fetchCategories(defaultPromptType),
   ]);
 
   return (
@@ -24,7 +27,7 @@ export default async function Home() {
         </div>
       }
     >
-      <PromptsContainer
+      <PromptsContainerWrapper
         initialPrompts={promptsResult}
         initialTags={tags}
         initialCategories={categories}

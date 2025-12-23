@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Copy, Check, ExternalLink, FileText } from "lucide-react";
 import { Prompt, Language } from "@/types";
 import { translations } from "@/lib/i18n";
 import { getImageUrl } from "@/lib/config";
+import { useImageLoader, useClipboard } from "@/hooks";
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -12,34 +13,27 @@ interface PromptCardProps {
   onClick?: () => void;
 }
 
+const FALLBACK_IMAGE = "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image";
+
 export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
-  const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
   const t = translations[lang];
+
+  // Use custom hooks for image loading and clipboard
+  const { imageSrc, isLoaded, imgRef, onLoad, onError } = useImageLoader({
+    src: prompt.preview ? getImageUrl(prompt.preview) : null,
+    fallbackSrc: FALLBACK_IMAGE,
+  });
+
+  const { copy, copied } = useClipboard({ resetDelay: 2000 });
 
   // 根据语言选择显示的标题和提示词（英文优先，没有则回退到中文）
   const displayTitle = lang === 'en' && prompt.title_en ? prompt.title_en : prompt.title;
   const displayPrompt = lang === 'en' && prompt.prompt_en ? prompt.prompt_en : prompt.prompt;
 
-  // 组件挂载后检查图片是否已在缓存中
-  useEffect(() => {
-    const img = imgRef.current;
-    if (!img) return;
-
-    // 如果图片已经加载完成（缓存命中）
-    if (img.complete && img.naturalHeight > 0) {
-      setImageLoaded(true);
-    }
-  }, []);
-
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await navigator.clipboard.writeText(displayPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await copy(displayPrompt);
   };
 
   const truncatedPrompt =
@@ -66,22 +60,15 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
           {prompt.preview ? (
             <img
               ref={imgRef}
-              src={
-                imageError
-                  ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
-                  : getImageUrl(prompt.preview)
-              }
+              src={imageSrc}
               alt={prompt.title}
               className={`w-full h-auto object-cover 
                          transition-opacity duration-200 ease-out
-                         ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+                         ${isLoaded ? "opacity-100" : "opacity-0"}`}
               loading="lazy"
               decoding="async"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => {
-                setImageError(true);
-                setImageLoaded(true);
-              }}
+              onLoad={onLoad}
+              onError={onError}
             />
           ) : (
             <div className="h-40 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 
@@ -95,7 +82,7 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
           <div 
             className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800
                        transition-opacity duration-200 ease-out
-                       ${imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
+                       ${isLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
           />
         )}
         {/* Category Badge - Apple 风格毛玻璃 */}
