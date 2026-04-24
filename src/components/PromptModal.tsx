@@ -5,6 +5,7 @@ import { X, Copy, Check, Share2, ChevronDown } from 'lucide-react';
 import { Prompt, Language } from '@/types';
 import { translations } from '@/lib/i18n';
 import { getImageUrl } from '@/lib/config';
+import { useClipboard } from '@/hooks';
 
 interface PromptModalProps {
   prompt: Prompt;
@@ -28,10 +29,12 @@ const shareOptions = [
 ];
 
 export default function PromptModal({ prompt, lang, onClose }: PromptModalProps) {
-  const [copied, setCopied] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
+
+  // Use custom hook for clipboard operations
+  const { copy, copied } = useClipboard({ resetDelay: 2000 });
 
   // 根据语言选择显示的标题和提示词（英文优先，没有则回退到中文）
   const displayTitle = lang === 'en' && prompt.title_en ? prompt.title_en : prompt.title;
@@ -65,9 +68,7 @@ export default function PromptModal({ prompt, lang, onClose }: PromptModalProps)
   }, [showShareMenu]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(displayPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await copy(displayPrompt);
   };
 
   const handleShareTo = (option: typeof shareOptions[0]) => {
@@ -77,12 +78,12 @@ export default function PromptModal({ prompt, lang, onClose }: PromptModalProps)
   };
 
   const handleOpenGrok = async () => {
-    await navigator.clipboard.writeText(displayPrompt);
+    await copy(displayPrompt);
     window.open('https://grok.com/', '_blank');
   };
 
   const handleOpenGemini = async () => {
-    await navigator.clipboard.writeText(displayPrompt);
+    await copy(displayPrompt);
     window.open('https://gemini.google.com/app', '_blank');
   };
 
@@ -142,7 +143,7 @@ export default function PromptModal({ prompt, lang, onClose }: PromptModalProps)
               <span className="text-[13px] text-gray-500 dark:text-gray-400">
                 {t.author}: <span className="text-gray-700 dark:text-gray-300">{prompt.author}</span>
               </span>
-<div className="relative" ref={shareMenuRef}>
+              <div className="relative" ref={shareMenuRef}>
                 <button
                   onClick={() => setShowShareMenu(!showShareMenu)}
                   className="flex items-center gap-1.5 text-[13px] text-gray-500 

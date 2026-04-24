@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Copy, Check, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { Copy, Check, ExternalLink, FileText } from "lucide-react";
 import { Prompt, Language } from "@/types";
 import { translations } from "@/lib/i18n";
 import { getImageUrl } from "@/lib/config";
+import { useImageLoader, useClipboard } from "@/hooks";
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -12,37 +13,27 @@ interface PromptCardProps {
   onClick?: () => void;
 }
 
+const FALLBACK_IMAGE = "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image";
+
 export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
-  const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
   const t = translations[lang];
+
+  // Use custom hooks for image loading and clipboard
+  const { imageSrc, isLoaded, imgRef, onLoad, onError } = useImageLoader({
+    src: prompt.preview ? getImageUrl(prompt.preview) : null,
+    fallbackSrc: FALLBACK_IMAGE,
+  });
+
+  const { copy, copied } = useClipboard({ resetDelay: 2000 });
 
   // 根据语言选择显示的标题和提示词（英文优先，没有则回退到中文）
   const displayTitle = lang === 'en' && prompt.title_en ? prompt.title_en : prompt.title;
   const displayPrompt = lang === 'en' && prompt.prompt_en ? prompt.prompt_en : prompt.prompt;
 
-  // 组件挂载后检查图片是否已在缓存中
-  useEffect(() => {
-    const img = imgRef.current;
-    if (!img) return;
-
-    // 如果图片已经加载完成（缓存命中）
-    if (img.complete && img.naturalHeight > 0) {
-      console.log('✅ 缓存命中:', prompt.title);
-      setImageLoaded(true);
-    } else {
-      console.log('⏳ 等待加载:', prompt.title, img.src);
-    }
-  }, [prompt.title]);
-
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await navigator.clipboard.writeText(displayPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await copy(displayPrompt);
   };
 
   const truncatedPrompt =
@@ -56,40 +47,43 @@ export default function PromptCard({ prompt, lang, onClick }: PromptCardProps) {
                  shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)]
                  hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] 
                  dark:shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)]
-                 transition-all duration-500 ease-out
+                 transition-shadow duration-300 ease-out
                  border border-gray-200/50 dark:border-gray-700/50
-                 hover:scale-[1.02] hover:-translate-y-1
-                 break-inside-avoid mb-5 cursor-pointer"
+                 break-inside-avoid mb-5 cursor-pointer
+                 will-change-[opacity,transform]"
       onClick={onClick}
     >
-      {/* Preview Image - 自然高度 */}
-      <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800 min-h-[120px]">
-        {/* 图片 - 始终渲染以触发 onLoad */}
-        <img
-          ref={imgRef}
-          src={
-            imageError
-              ? "https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image"
-              : getImageUrl(prompt.preview)
-          }
-          alt={prompt.title}
-          className={`w-full h-auto object-cover 
-                     transition-all duration-300 ease-out
-                     group-hover:scale-105
-                     ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-          onLoad={() => {
-            console.log('🖼️ onLoad 触发:', prompt.title);
-            setImageLoaded(true);
-          }}
-          onError={(e) => {
-            console.log('❌ onError 触发:', prompt.title, (e.target as HTMLImageElement).src);
-            setImageError(true);
-            setImageLoaded(true);
-          }}
-        />
-        {/* 骨架屏 - 绝对定位覆盖 */}
-        {!imageLoaded && (
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800" />
+      {/* Preview Image - 使用固定 aspect-ratio 减少布局抖动 */}
+      <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800">
+        {/* 图片容器 - 使用最小高度和自适应 */}
+        <div className="min-h-[160px]">
+          {prompt.preview ? (
+            <img
+              ref={imgRef}
+              src={imageSrc}
+              alt={prompt.title}
+              className={`w-full h-auto object-cover 
+                         transition-opacity duration-200 ease-out
+                         ${isLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+              decoding="async"
+              onLoad={onLoad}
+              onError={onError}
+            />
+          ) : (
+            <div className="h-40 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 
+                           flex items-center justify-center">
+              <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+            </div>
+          )}
+        </div>
+        {/* 骨架屏 - 绝对定位覆盖，添加淡出动画（仅有图片时显示） */}
+        {prompt.preview && (
+          <div 
+            className={`absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800
+                       transition-opacity duration-200 ease-out
+                       ${isLoaded ? "opacity-0 pointer-events-none" : "opacity-100 animate-pulse"}`}
+          />
         )}
         {/* Category Badge - Apple 风格毛玻璃 */}
         <div className="absolute top-3 right-3">
